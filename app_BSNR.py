@@ -2,24 +2,51 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-from datetime import datetime
 from datetime import datetime, time
 
 # Configuración de la página para que sea más ancha
 st.set_page_config(layout="wide")
 
 # Initialize session state variables
-if 'dark_mode' not in st.session_state:
-    st.session_state.dark_mode = True  # Iniciar en modo oscuro por defecto
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
+if 'theme' not in st.session_state:
+    st.session_state.theme = 'default'
 if 'view' not in st.session_state:
     st.session_state.view = 'Gráfico'
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
 
-# Función para aplicar el tema oscuro o claro
-def apply_theme():
-    if st.session_state.dark_mode:
-        # Tema oscuro
+def clean_data(df):
+    """
+    Reemplaza los valores -999.9 y -999.0 con NaN en todo el DataFrame.
+    """
+    return df.replace([-999.9, -999.0], np.nan)
+# Función para mostrar la página de inicio de sesión
+def login():
+    st.title("Inicio de Sesión")
+    username = st.text_input("Nombre de usuario")
+    password = st.text_input("Contraseña", type="password")
+
+    if st.button("Iniciar Sesión"):
+        if username == "admin" and password == "admin":
+            st.session_state.logged_in = True
+        else:
+            st.error("Nombre de usuario o contraseña incorrectos")
+
+
+# Función para aplicar el tema
+def apply_theme(theme, light_config=None):
+    if light_config is None:
+        light_config = {
+            'bg_color': '#FFFFFF',        # Blanco para el fondo
+            'text_color': '#333333',      # Gris oscuro para el texto principal
+            'input_bg_color': '#F8F8F8',  # Gris muy claro para el fondo de los inputs
+            'input_border_color': '#E0E0E0',  # Gris claro para los bordes
+            'button_bg_color': '#F0F0F0', # Gris claro para los botones
+            'link_color': '#1A73E8',      # Azul para los enlaces
+            'header_color': '#212121'     # Gris muy oscuro para los encabezados
+        }
+    
+    if theme == 'dark':
         st.markdown("""
         <style>
         .stApp {
@@ -46,59 +73,260 @@ def apply_theme():
         }
         </style>
         """, unsafe_allow_html=True)
-    else:
-        # Tema claro
+    elif theme == 'warm':
         st.markdown("""
         <style>
+        .stApp, .stApp * {
+            color: #5D4037;
+        }
         .stApp {
-            background-color: #FFFFFF;
-            color: #000000;
+            background-color: #FFF5E6;
         }
         .stSelectbox, .stMultiSelect, .stDateInput, .stTimeInput, .stTextInput > div > div > input {
-            background-color: #F0F2F6;
-            color: #000000;
+            background-color: #FFE4B5;
         }
         .stButton > button {
-            background-color: #F0F2F6;
-            color: #000000;
+            background-color: #DEB887;
         }
         .stTextInput > label, .stSelectbox > label, .stMultiSelect > label, .stDateInput > label, .stTimeInput > label {
-            color: #000000 !important;
+            color: #5D4037 !important;
         }
         div[data-baseweb="select"] > div {
-            background-color: #F0F2F6;
-            color: #000000;
+            background-color: #FFE4B5;
         }
         div[data-baseweb="base-input"] {
-            background-color: #F0F2F6;
+            background-color: #FFE4B5;
         }
-        /* Asegurar que todo el texto sea negro en modo claro */
-        .stApp, .stApp p, .stApp span, .stApp div {
-            color: #000000 !important;
+        /* Asegurarse de que todo el texto sea del color deseado */
+        .stApp p, .stApp span, .stApp div, .stApp label, .stApp input, .stApp select, .stApp button {
+            color: #5D4037 !important;
         }
         </style>
         """, unsafe_allow_html=True)
+    elif theme == 'dracula':
+        st.markdown("""
+        <style>
+        .stApp {
+            background-color: #282a36;
+            color: #f8f8f2;
+        }
+        .stSelectbox, .stMultiSelect, .stDateInput, .stTimeInput, .stTextInput > div > div > input {
+            background-color: #44475a;
+            color: #f8f8f2;
+            border: 1px solid #6272a4;
+        }
+        .stButton > button {
+            background-color: #44475a;
+            color: #f8f8f2;
+            border: 1px solid #6272a4;
+        }
+        .stTextInput > label, .stSelectbox > label, .stMultiSelect > label, .stDateInput > label, .stTimeInput > label {
+            color: #f8f8f2 !important;
+        }
+        div[data-baseweb="select"] > div {
+            background-color: #44475a;
+            color: #f8f8f2;
+        }
+        div[data-baseweb="base-input"] {
+            background-color: #44475a;
+        }
+        .stApp a {
+            color: #8be9fd !important;
+        }
+        .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
+            color: #bd93f9 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    elif theme == 'solarized_light':
+        st.markdown("""
+        <style>
+        .stApp {
+            background-color: #fdf6e3;
+            color: #657b83;
+        }
+        .stSelectbox, .stMultiSelect, .stDateInput, .stTimeInput, .stTextInput > div > div > input {
+            background-color: #eee8d5;
+            color: #657b83;
+            border: 1px solid #93a1a1;
+        }
+        .stButton > button {
+            background-color: #eee8d5;
+            color: #657b83;
+            border: 1px solid #93a1a1;
+        }
+        .stTextInput > label, .stSelectbox > label, .stMultiSelect > label, .stDateInput > label, .stTimeInput > label {
+            color: #657b83 !important;
+        }
+        div[data-baseweb="select"] > div {
+            background-color: #eee8d5;
+            color: #657b83;
+        }
+        div[data-baseweb="base-input"] {
+            background-color: #eee8d5;
+        }
+        .stApp a {
+            color: #268bd2 !important;
+        }
+        .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
+            color: #cb4b16 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    elif theme == 'solarized_dark':
+        st.markdown("""
+        <style>
+        .stApp {
+            background-color: #002b36;
+            color: #839496;
+        }
+        .stSelectbox, .stMultiSelect, .stDateInput, .stTimeInput, .stTextInput > div > div > input {
+            background-color: #073642;
+            color: #839496;
+            border: 1px solid #586e75;
+        }
+        .stButton > button {
+            background-color: #073642;
+            color: #839496;
+            border: 1px solid #586e75;
+        }
+        .stTextInput > label, .stSelectbox > label, .stMultiSelect > label, .stDateInput > label, .stTimeInput > label {
+            color: #839496 !important;
+        }
+        div[data-baseweb="select"] > div {
+            background-color: #073642;
+            color: #839496;
+        }
+        div[data-baseweb="base-input"] {
+            background-color: #073642;
+        }
+        .stApp a {
+            color: #268bd2 !important;
+        }
+        .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
+            color: #cb4b16 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    else:  # light theme (default)
+        st.markdown(f"""
+        <style>
+        .stApp {{
+            background-color: {light_config['bg_color']};
+            color: {light_config['text_color']};
+        }}
+        .stSelectbox, .stMultiSelect, .stDateInput, .stTimeInput, .stTextInput > div > div > input {{
+            background-color: {light_config['input_bg_color']};
+            color: {light_config['text_color']};
+            border: 1px solid {light_config['input_border_color']};
+        }}
+        .stButton > button {{
+            background-color: {light_config['button_bg_color']};
+            color: {light_config['text_color']};
+            border: 1px solid {light_config['input_border_color']};
+        }}
+        .stTextInput > label, .stSelectbox > label, .stMultiSelect > label, .stDateInput > label, .stTimeInput > label {{
+            color: {light_config['text_color']} !important;
+            font-weight: 600;
+        }}
+        div[data-baseweb="select"] > div {{
+            background-color: {light_config['input_bg_color']};
+            color: {light_config['text_color']};
+        }}
+        div[data-baseweb="base-input"] {{
+            background-color: {light_config['input_bg_color']};
+        }}
+        .stApp p, .stApp span, .stApp div, .stApp label, .stApp input, .stApp select, .stApp button {{
+            color: {light_config['text_color']} !important;
+        }}
+        .stApp a {{
+            color: {light_config['link_color']} !important;
+        }}
+        .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {{
+            color: {light_config['header_color']} !important;
+            font-weight: 700;
+        }}
+        .stDataFrame {{
+            color: {light_config['text_color']};
+        }}
+        .stDataFrame td, .stDataFrame th {{
+            border-color: {light_config['input_border_color']} !important;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
 
-# Función para mostrar la página de inicio de sesión
-def login():
-    st.title("Inicio de Sesión")
-    username = st.text_input("Nombre de usuario")
-    password = st.text_input("Contraseña", type="password")
+    # Estilo para el selector de temas discreto y más pequeño
+    st.markdown("""
+    <style>
+    #theme-selector {
+        position: fixed;
+        top: 14px;
+        right: 10px;
+        z-index: 999999;
+    }
+    #theme-selector .stSelectbox {
+        min-width: 10px;
+        max-width: 80px;
+    }
+    #theme-selector .stSelectbox > div > div {
+        font-size: 0.8em;
+        padding: 2px 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    if st.button("Iniciar Sesión"):
-        if username == "admin" and password == "admin":
-            st.session_state.logged_in = True
-        else:
-            st.error("Nombre de usuario o contraseña incorrectos")
 
 # Función para mostrar la página principal
 def main():
+    # Aplicar el tema actual
+    apply_theme(st.session_state.theme)
+
+    # Selector de tema discreto y más pequeño en la esquina superior derecha
+    with st.container():
+        st.markdown("""
+        <style>
+        #theme-selector {
+            position: fixed;
+            top: 14px;
+            right: 10px;
+            z-index: 999999;
+        }
+        #theme-selector .stSelectbox {
+            min-width: 10px;
+            max-width: 120px;
+        }
+        #theme-selector .stSelectbox > div > div {
+            font-size: 0.8em;
+            padding: 2px 5px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<div id="theme-selector">', unsafe_allow_html=True)
+        theme_options = ["light", "dark", "warm", "dracula", "solarized_light", "solarized_dark"]
+        new_theme = st.selectbox(
+            "",
+            options=theme_options,
+            index=theme_options.index(st.session_state.theme) if st.session_state.theme in theme_options else 0,
+            key="theme_selector",
+            label_visibility="collapsed"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        if new_theme != st.session_state.theme:
+            st.session_state.theme = new_theme
+            st.experimental_rerun()
+
+
     # Definir la ruta del archivo CSV
     file_path = "/Users/mi20609/Documents/Learning/bsnr_sl/BSRN_2023_ene.csv"
 
     # Leer datos desde el archivo CSV y convertir TIMESTAMP a datetime
     data = pd.read_csv(file_path)
     data['TIMESTAMP'] = pd.to_datetime(data['TIMESTAMP'])
+
+    # Limpiar los datos
+    data = clean_data(data)
 
     # Convertir todas las columnas excepto 'TIMESTAMP' a numéricas
     numeric_columns = data.columns.drop('TIMESTAMP')
@@ -112,10 +340,10 @@ def main():
     data['dif_GH_CALC_GLOBAL'] = data['GH_CALC_Avg'] - data['GLOBAL_Avg']
     data['ratio_GH_CALC_GLOBAL'] = data['GH_CALC_Avg'] / data['GLOBAL_Avg']
     data['sum_SW'] = data['DIFFUSE_Avg'] + data['DIRECT_Avg'] * np.cos(np.radians(data['ZenDeg']))
-
+    data["percent"] = 0.01*data['sum_SW'] 
     # Definir grupos de variables
     groups = {
-        "Parametros Basicos": ["GLOBAL", "DIRECT", "DIFFUSE", "GH_CALC"],
+        "Parametros Basicos": ["GLOBAL", "DIRECT", "DIFFUSE", "GH_CALC","percent"],
         "Balance de onda corta": ["GLOBAL", "UPWARD_SW"],
         "Balance de onda larga": ["DOWNWARD", "UPWARD_LW", "DWIRTEMP", "UWIRTEMP", "CRPTemp"],
         "Meteorologia": ["CRPTemp", "RELATIVE_HUMIDITY", "PRESSURE", "DEW_POINT"],
@@ -137,7 +365,7 @@ def main():
     categorized_vars = set([item for sublist in groups.values() for item in sublist if sublist])
     groups["Otros"] = list(all_columns - categorized_vars)
     
-    st.title("BSRN Visualización outliers")
+    st.title("bsrn Visualización outliers")
 
     # Crear dos columnas con diferentes anchos
     col1, col2 = st.columns([1, 2])
@@ -156,12 +384,14 @@ def main():
                 "Fecha de inicio",
                 min_value=data['TIMESTAMP'].min().date(),
                 max_value=data['TIMESTAMP'].max().date(),
-                value=data['TIMESTAMP'].min().date()
+                value=data['TIMESTAMP'].min().date(),
+                key="start_date"
             )
             start_time = st.time_input(
                 "Hora de inicio",
                 value=time(0, 0),
-                step=60  # Step in seconds, 60 means minutes
+                step=60,  # Step in seconds, 60 means minutes
+                key="start_time"
             )
 
             # End datetime selection
@@ -169,12 +399,14 @@ def main():
                 "Fecha de fin",
                 min_value=data['TIMESTAMP'].min().date(),
                 max_value=data['TIMESTAMP'].max().date(),
-                value=data['TIMESTAMP'].max().date()
+                value=data['TIMESTAMP'].max().date(),
+                key="end_date"
             )
             end_time = st.time_input(
                 "Hora de fin",
                 value=time(23, 59),
-                step=60  # Step in seconds, 60 means minutes
+                step=60,  # Step in seconds, 60 means minutes
+                key="end_time"
             )
 
             # Combine date and time
@@ -189,27 +421,31 @@ def main():
 
             # Censoring date selection
             censor_start_date = st.date_input(
-                "Fecha de inicio de censura",
+                "Fecha de inicio ",
                 min_value=data['TIMESTAMP'].min().date(),
                 max_value=data['TIMESTAMP'].max().date(),
-                value=data['TIMESTAMP'].min().date()
+                value=data['TIMESTAMP'].min().date(),
+                key="censor_start_date"
             )
             censor_start_time = st.time_input(
-                "Hora de inicio de censura",
+                "Hora de inicio",
                 value=time(0, 0),
-                step=60
+                step=60,
+                key="censor_start_time"
             )
 
             censor_end_date = st.date_input(
-                "Fecha de fin de censura",
+                "Fecha de fin ",
                 min_value=data['TIMESTAMP'].min().date(),
                 max_value=data['TIMESTAMP'].max().date(),
-                value=data['TIMESTAMP'].max().date()
+                value=data['TIMESTAMP'].max().date(),
+                key="censor_end_date"
             )
             censor_end_time = st.time_input(
-                "Hora de fin de censura",
+                "Hora de fin ",
                 value=time(23, 59),
-                step=60
+                step=60,
+                key="censor_end_time"
             )
 
             # Combine date and time for censoring
@@ -241,18 +477,79 @@ def main():
             
             if valid_vars:
                 title = f"Gráfico de Multilínea\n"
-                fig = px.line(filtered_data, x='TIMESTAMP', y=valid_vars, title=title)
-                fig.update_layout(
-                    hovermode="x unified",
-                    height=800,
-                    width=1200,
-                    plot_bgcolor='rgba(0,0,0,0)' if st.session_state.dark_mode else 'white',
-                    paper_bgcolor='rgba(0,0,0,0)' if st.session_state.dark_mode else 'white',
-                    font_color='white' if st.session_state.dark_mode else 'black'
-                )
+                fig = px.scatter(filtered_data, x='TIMESTAMP', y=valid_vars, title=title)
+                
+                # Configurar el tema del gráfico según el tema seleccionado
+                if st.session_state.theme == 'dark':
+                    fig.update_layout(
+                        plot_bgcolor='#1E1E1E',
+                        paper_bgcolor='#1E1E1E',
+                        font_color='#FFFFFF',
+                        title_font_color='#FFFFFF',
+                        legend_title_font_color='#FFFFFF',
+                        xaxis=dict(title_font_color='#FFFFFF', tickfont_color='#FFFFFF', gridcolor='#4A4A4A'),
+                        yaxis=dict(title_font_color='#FFFFFF', tickfont_color='#FFFFFF', gridcolor='#4A4A4A')
+                    )
+                elif st.session_state.theme == 'warm':
+                    fig.update_layout(
+                        plot_bgcolor='#FFF5E6',
+                        paper_bgcolor='#FFF5E6',
+                        font_color='#5D4037',
+                        title_font_color='#5D4037',
+                        legend_title_font_color='#5D4037',
+                        xaxis=dict(title_font_color='#5D4037', tickfont_color='#5D4037', gridcolor='#DEB887'),
+                        yaxis=dict(title_font_color='#5D4037', tickfont_color='#5D4037', gridcolor='#DEB887')
+                    )
+                elif st.session_state.theme == 'dracula':
+                    fig.update_layout(
+                        plot_bgcolor='#282a36',
+                        paper_bgcolor='#282a36',
+                        font_color='#f8f8f2',
+                        title_font_color='#bd93f9',
+                        legend_title_font_color='#f8f8f2',
+                        xaxis=dict(title_font_color='#f8f8f2', tickfont_color='#f8f8f2', gridcolor='#44475a'),
+                        yaxis=dict(title_font_color='#f8f8f2', tickfont_color='#f8f8f2', gridcolor='#44475a')
+                    )
+                elif st.session_state.theme == 'solarized_light':
+                    fig.update_layout(
+                        plot_bgcolor='#fdf6e3',
+                        paper_bgcolor='#fdf6e3',
+                        font_color='#657b83',
+                        title_font_color='#cb4b16',
+                        legend_title_font_color='#657b83',
+                        xaxis=dict(title_font_color='#657b83', tickfont_color='#657b83', gridcolor='#eee8d5'),
+                        yaxis=dict(title_font_color='#657b83', tickfont_color='#657b83', gridcolor='#eee8d5')
+                    )
+                elif st.session_state.theme == 'solarized_dark':
+                    fig.update_layout(
+                        plot_bgcolor='#002b36',
+                        paper_bgcolor='#002b36',
+                        font_color='#839496',
+                        title_font_color='#cb4b16',
+                        legend_title_font_color='#839496',
+                        xaxis=dict(title_font_color='#839496', tickfont_color='#839496', gridcolor='#073642'),
+                        yaxis=dict(title_font_color='#839496', tickfont_color='#839496', gridcolor='#073642')
+                    )
+                else:  # light theme (default)
+                    fig.update_layout(
+                        plot_bgcolor='#FFFFFF',
+                        paper_bgcolor='#FFFFFF',
+                        font_color='#333333',
+                        title_font_color='#333333',
+                        legend_title_font_color='#333333',
+                        xaxis=dict(title_font_color='#333333', tickfont_color='#333333', gridcolor='#E0E0E0'),
+                        yaxis=dict(title_font_color='#333333', tickfont_color='#333333', gridcolor='#E0E0E0')
+                    )
+                
+                # Actualizar las líneas del gráfico para que sean más visibles
+                for trace in fig.data:
+                    trace.update(line=dict(width=2))  # Hacer las líneas más gruesas
+                
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.warning("Ninguna de las variables seleccionadas está presente en los datos filtrados.")
+
+
         else:
             # Apply censura de datos
             censored_data = filtered_data.copy()
@@ -275,16 +572,12 @@ def main():
                 mime='text/csv',
             )
 
-    # Añadir el botón de modo oscuro/claro al final
-    if st.button("Alternar Modo Oscuro/Claro"):
-        st.session_state.dark_mode = not st.session_state.dark_mode
-        st.experimental_rerun()
+#Main execution
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
 
-# Aplicar el tema antes de renderizar la página
-apply_theme()
-
-# Main execution
 if st.session_state.logged_in:
     main()
 else:
     login()
+
