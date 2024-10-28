@@ -7,9 +7,9 @@ from datetime import datetime, time
 # Configuración de la página para que sea más ancha
 st.set_page_config(layout="wide")
 
-# Initialize session state variables
+# Inicializar variables de estado de sesión
 if 'theme' not in st.session_state:
-    st.session_state.theme = 'default'
+    st.session_state.theme = 'light'  # Cambiado 'default' por 'light'
 if 'view' not in st.session_state:
     st.session_state.view = 'Gráfico'
 if 'logged_in' not in st.session_state:
@@ -20,6 +20,7 @@ def clean_data(df):
     Reemplaza los valores -999.9 y -999.0 con NaN en todo el DataFrame.
     """
     return df.replace([-999.9, -999.0], np.nan)
+
 # Función para mostrar la página de inicio de sesión
 def login():
     st.title("Inicio de Sesión")
@@ -29,9 +30,9 @@ def login():
     if st.button("Iniciar Sesión"):
         if username == "admin" and password == "admin":
             st.session_state.logged_in = True
+            st.experimental_rerun()
         else:
             st.error("Nombre de usuario o contraseña incorrectos")
-
 
 # Función para aplicar el tema
 def apply_theme(theme, light_config=None):
@@ -93,6 +94,7 @@ def apply_theme(theme, light_config=None):
         }
         div[data-baseweb="select"] > div {
             background-color: #FFE4B5;
+            color: #5D4037;
         }
         div[data-baseweb="base-input"] {
             background-color: #FFE4B5;
@@ -208,7 +210,7 @@ def apply_theme(theme, light_config=None):
         }
         </style>
         """, unsafe_allow_html=True)
-    else:  # light theme (default)
+    elif theme == 'light':
         st.markdown(f"""
         <style>
         .stApp {{
@@ -254,72 +256,62 @@ def apply_theme(theme, light_config=None):
         }}
         </style>
         """, unsafe_allow_html=True)
-
-    # Estilo para el selector de temas discreto y más pequeño
-    st.markdown("""
-    <style>
-    #theme-selector {
-        position: fixed;
-        top: 14px;
-        right: 10px;
-        z-index: 999999;
-    }
-    #theme-selector .stSelectbox {
-        min-width: 10px;
-        max-width: 80px;
-    }
-    #theme-selector .stSelectbox > div > div {
-        font-size: 0.8em;
-        padding: 2px 5px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
+    else:
+        # Tema por defecto (light)
+        st.markdown(f"""
+        <style>
+        .stApp {{
+            background-color: {light_config['bg_color']};
+            color: {light_config['text_color']};
+        }}
+        /* Resto de los estilos por defecto */
+        </style>
+        """, unsafe_allow_html=True)
 
 # Función para mostrar la página principal
 def main():
     # Aplicar el tema actual
     apply_theme(st.session_state.theme)
 
-    # Selector de tema discreto y más pequeño en la esquina superior derecha
-    with st.container():
-        st.markdown("""
+    # Definir las opciones de tema
+    theme_options = ["light", "dark", "warm", "dracula", "solarized_light", "solarized_dark"]
+
+    # Inicializar el índice del tema si no existe
+    if 'theme_index' not in st.session_state:
+        st.session_state.theme_index = theme_options.index(st.session_state.theme)
+
+    # Agregar estilos CSS para posicionar el botón en la esquina superior derecha
+    st.markdown("""
         <style>
         #theme-selector {
             position: fixed;
             top: 14px;
             right: 10px;
-            z-index: 999999;
+            z-index: 9999;
         }
-        #theme-selector .stSelectbox {
-            min-width: 10px;
-            max-width: 120px;
-        }
-        #theme-selector .stSelectbox > div > div {
-            font-size: 0.8em;
+        #theme-selector .stButton button {
+            min-width: 30px;
+            max-width: 30px;
+            font-size: 1.2em;
             padding: 2px 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
         }
         </style>
-        """, unsafe_allow_html=True)
-        
-        st.markdown('<div id="theme-selector">', unsafe_allow_html=True)
-        theme_options = ["light", "dark", "warm", "dracula", "solarized_light", "solarized_dark"]
-        new_theme = st.selectbox(
-            "",
-            options=theme_options,
-            index=theme_options.index(st.session_state.theme) if st.session_state.theme in theme_options else 0,
-            key="theme_selector",
-            label_visibility="collapsed"
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        if new_theme != st.session_state.theme:
-            st.session_state.theme = new_theme
-            st.experimental_rerun()
+    """, unsafe_allow_html=True)
 
+    # Crear un contenedor para el botón y posicionarlo usando el ID personalizado
+    st.markdown('<div id="theme-selector">', unsafe_allow_html=True)
+    if st.button('🎨', key='theme_button'):
+        # Cambiar al siguiente tema
+        st.session_state.theme_index = (st.session_state.theme_index + 1) % len(theme_options)
+        st.session_state.theme = theme_options[st.session_state.theme_index]
+        st.experimental_rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # Definir la ruta del archivo CSV
-    file_path = "/Users/mi20609/Documents/Learning/bsnr_sl/BSRN_2023_ene.csv"
+    file_path = "BSRN_2023_ene.csv"
 
     # Leer datos desde el archivo CSV y convertir TIMESTAMP a datetime
     data = pd.read_csv(file_path)
@@ -340,10 +332,11 @@ def main():
     data['dif_GH_CALC_GLOBAL'] = data['GH_CALC_Avg'] - data['GLOBAL_Avg']
     data['ratio_GH_CALC_GLOBAL'] = data['GH_CALC_Avg'] / data['GLOBAL_Avg']
     data['sum_SW'] = data['DIFFUSE_Avg'] + data['DIRECT_Avg'] * np.cos(np.radians(data['ZenDeg']))
-    data["percent"] = 0.01*data['sum_SW'] 
+    data["percent"] = 0.01 * data['sum_SW']
+
     # Definir grupos de variables
     groups = {
-        "Parametros Basicos": ["GLOBAL", "DIRECT", "DIFFUSE", "GH_CALC","percent"],
+        "Parametros Basicos": ["GLOBAL", "DIRECT", "DIFFUSE", "GH_CALC", "percent"],
         "Balance de onda corta": ["GLOBAL", "UPWARD_SW"],
         "Balance de onda larga": ["DOWNWARD", "UPWARD_LW", "DWIRTEMP", "UWIRTEMP", "CRPTemp"],
         "Meteorologia": ["CRPTemp", "RELATIVE_HUMIDITY", "PRESSURE", "DEW_POINT"],
@@ -365,7 +358,7 @@ def main():
     categorized_vars = set([item for sublist in groups.values() for item in sublist if sublist])
     groups["Otros"] = list(all_columns - categorized_vars)
     
-    st.title("bsrn Visualización outliers")
+    st.title("BSRN Visualización Outliers")
 
     # Crear dos columnas con diferentes anchos
     col1, col2 = st.columns([1, 2])
@@ -373,13 +366,19 @@ def main():
     with col1:
         st.header("Selección y Censura de Datos")
 
-        # Create two columns within col1
-        select_col, censor_col = st.columns(2)
+        # Selector para elegir entre "Selección" y "Censura"
+        option = st.selectbox("Seleccione una opción", ["Selección", "Censura"])
 
-        with select_col:
-            st.subheader("Selección de Datos")
+        # Inicializar variables de tiempo
+        start_datetime = data['TIMESTAMP'].min()
+        end_datetime = data['TIMESTAMP'].max()
+        censor_start_datetime = data['TIMESTAMP'].min()
+        censor_end_datetime = data['TIMESTAMP'].max()
 
-            # Start datetime selection
+        if option == "Selección":
+            st.subheader("Selección")
+
+            # Selección de fecha y hora de inicio
             start_date = st.date_input(
                 "Fecha de inicio",
                 min_value=data['TIMESTAMP'].min().date(),
@@ -390,11 +389,11 @@ def main():
             start_time = st.time_input(
                 "Hora de inicio",
                 value=time(0, 0),
-                step=60,  # Step in seconds, 60 means minutes
+                step=60,  # Paso en segundos
                 key="start_time"
             )
 
-            # End datetime selection
+            # Selección de fecha y hora de fin
             end_date = st.date_input(
                 "Fecha de fin",
                 min_value=data['TIMESTAMP'].min().date(),
@@ -405,50 +404,47 @@ def main():
             end_time = st.time_input(
                 "Hora de fin",
                 value=time(23, 59),
-                step=60,  # Step in seconds, 60 means minutes
+                step=60,
                 key="end_time"
             )
 
-            # Combine date and time
+            # Combinar fecha y hora
             start_datetime = datetime.combine(start_date, start_time)
             end_datetime = datetime.combine(end_date, end_time)
 
-            # Filter data based on selected date range
-            filtered_data = data[(data['TIMESTAMP'] >= start_datetime) & (data['TIMESTAMP'] <= end_datetime)]
+        elif option == "Censura":
+            st.subheader("Censura")
 
-        with censor_col:
-            st.subheader("Censura de Datos")
-
-            # Censoring date selection
+            # Selección de fecha y hora para censura
             censor_start_date = st.date_input(
-                "Fecha de inicio ",
+                "Fecha de inicio de censura",
                 min_value=data['TIMESTAMP'].min().date(),
                 max_value=data['TIMESTAMP'].max().date(),
                 value=data['TIMESTAMP'].min().date(),
                 key="censor_start_date"
             )
             censor_start_time = st.time_input(
-                "Hora de inicio",
+                "Hora de inicio de censura",
                 value=time(0, 0),
                 step=60,
                 key="censor_start_time"
             )
 
             censor_end_date = st.date_input(
-                "Fecha de fin ",
+                "Fecha de fin de censura",
                 min_value=data['TIMESTAMP'].min().date(),
                 max_value=data['TIMESTAMP'].max().date(),
                 value=data['TIMESTAMP'].max().date(),
                 key="censor_end_date"
             )
             censor_end_time = st.time_input(
-                "Hora de fin ",
+                "Hora de fin de censura",
                 value=time(23, 59),
                 step=60,
                 key="censor_end_time"
             )
 
-            # Combine date and time for censoring
+            # Combinar fecha y hora para censura
             censor_start_datetime = datetime.combine(censor_start_date, censor_start_time)
             censor_end_datetime = datetime.combine(censor_end_date, censor_end_time)
 
@@ -463,13 +459,16 @@ def main():
                 default=groups[selected_group]
             )
 
-        file_name = st.text_input("Nombre del archivo a descargar", "datos_censurados.csv")
+        file_name = st.text_input("Nombre del archivo a descargar", "datos.csv")
 
     with col2:
         st.header("Vista de Datos")
 
-        if st.button('Gráfico / descargar informe'):
+        if st.button('Gráfico / Descargar Informe'):
             st.session_state.view = 'Tabla' if st.session_state.view == 'Gráfico' else 'Gráfico'
+
+        # Filtrar datos basados en el rango de fechas seleccionado
+        filtered_data = data[(data['TIMESTAMP'] >= start_datetime) & (data['TIMESTAMP'] <= end_datetime)]
 
         if st.session_state.view == 'Gráfico':
             # Filtrar las variables seleccionadas para asegurarse de que existen en el DataFrame
@@ -549,30 +548,43 @@ def main():
             else:
                 st.warning("Ninguna de las variables seleccionadas está presente en los datos filtrados.")
 
-
         else:
-            # Apply censura de datos
-            censored_data = filtered_data.copy()
-            valid_vars = [var for var in selected_vars if var in censored_data.columns]
-            censored_data.loc[
-                (censored_data['TIMESTAMP'] >= censor_start_datetime) & 
-                (censored_data['TIMESTAMP'] <= censor_end_datetime), 
-                valid_vars
-            ] = np.nan
+            if option == "Censura de datos":
+                # Aplicar censura de datos
+                censored_data = filtered_data.copy()
+                valid_vars = [var for var in selected_vars if var in censored_data.columns]
+                censored_data.loc[
+                    (censored_data['TIMESTAMP'] >= censor_start_datetime) & 
+                    (censored_data['TIMESTAMP'] <= censor_end_datetime), 
+                    valid_vars
+                ] = np.nan
 
-            st.write("Datos con censura aplicada:")
-            st.dataframe(censored_data[['TIMESTAMP'] + valid_vars].head(10), height=400)
+                st.write("Datos con censura aplicada:")
+                st.dataframe(censored_data[['TIMESTAMP'] + valid_vars].head(10), height=400)
 
-            # Descargar datos
-            csv = censored_data.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="Descargar datos censurados como CSV",
-                data=csv,
-                file_name=file_name,
-                mime='text/csv',
-            )
+                # Descargar datos
+                csv = censored_data.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Descargar datos censurados como CSV",
+                    data=csv,
+                    file_name=file_name,
+                    mime='text/csv',
+                )
+            else:
+                st.write("Datos seleccionados:")
+                valid_vars = [var for var in selected_vars if var in filtered_data.columns]
+                st.dataframe(filtered_data[['TIMESTAMP'] + valid_vars].head(10), height=400)
 
-#Main execution
+                # Descargar datos
+                csv = filtered_data.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Descargar datos como CSV",
+                    data=csv,
+                    file_name=file_name,
+                    mime='text/csv',
+                )
+
+# Ejecución principal
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
@@ -580,4 +592,3 @@ if st.session_state.logged_in:
     main()
 else:
     login()
-
