@@ -350,104 +350,60 @@ def main():
     for group, vars in groups.items():
         groups[group] = [var + '_Avg' if var + '_Avg' in data.columns and var not in data.columns else var for var in vars]
 
-    # Asumiendo que 'data' es tu DataFrame
+    # Obtener todas las columnas excepto 'TIMESTAMP'
     all_columns = set(data.columns) - {'TIMESTAMP'}
     groups["Todas las variables"] = list(all_columns)
 
     # Para llenar "Otros"
     categorized_vars = set([item for sublist in groups.values() for item in sublist if sublist])
     groups["Otros"] = list(all_columns - categorized_vars)
-    
+
     st.title("BSRN Visualización Outliers")
 
     # Crear dos columnas con diferentes anchos
     col1, col2 = st.columns([1, 2])
 
     with col1:
-        st.header("Selección y Censura de Datos")
+        st.header("Selección de Datos")
 
-        # Selector para elegir entre "Selección" y "Censura"
-        option = st.selectbox("Seleccione una opción", ["Selección", "Censura"])
+        # Selección de fecha y hora de inicio
+        start_date = st.date_input(
+            "Fecha de inicio",
+            min_value=data['TIMESTAMP'].min().date(),
+            max_value=data['TIMESTAMP'].max().date(),
+            value=data['TIMESTAMP'].min().date(),
+            key="start_date"
+        )
+        start_time = st.time_input(
+            "Hora de inicio",
+            value=time(0, 0),
+            step=60,  # Paso en segundos
+            key="start_time"
+        )
 
-        # Inicializar variables de tiempo
-        start_datetime = data['TIMESTAMP'].min()
-        end_datetime = data['TIMESTAMP'].max()
-        censor_start_datetime = data['TIMESTAMP'].min()
-        censor_end_datetime = data['TIMESTAMP'].max()
+        # Selección de fecha y hora de fin
+        end_date = st.date_input(
+            "Fecha de fin",
+            min_value=data['TIMESTAMP'].min().date(),
+            max_value=data['TIMESTAMP'].max().date(),
+            value=data['TIMESTAMP'].max().date(),
+            key="end_date"
+        )
+        end_time = st.time_input(
+            "Hora de fin",
+            value=time(23, 59),
+            step=60,
+            key="end_time"
+        )
 
-        if option == "Selección":
-            st.subheader("Selección")
+        # Combinar fecha y hora
+        start_datetime = datetime.combine(start_date, start_time)
+        end_datetime = datetime.combine(end_date, end_time)
 
-            # Selección de fecha y hora de inicio
-            start_date = st.date_input(
-                "Fecha de inicio",
-                min_value=data['TIMESTAMP'].min().date(),
-                max_value=data['TIMESTAMP'].max().date(),
-                value=data['TIMESTAMP'].min().date(),
-                key="start_date"
-            )
-            start_time = st.time_input(
-                "Hora de inicio",
-                value=time(0, 0),
-                step=60,  # Paso en segundos
-                key="start_time"
-            )
+        # Filtrar datos basados en el rango de fechas seleccionado
+        data_to_plot = data[(data['TIMESTAMP'] >= start_datetime) & (data['TIMESTAMP'] <= end_datetime)].copy()
 
-            # Selección de fecha y hora de fin
-            end_date = st.date_input(
-                "Fecha de fin",
-                min_value=data['TIMESTAMP'].min().date(),
-                max_value=data['TIMESTAMP'].max().date(),
-                value=data['TIMESTAMP'].max().date(),
-                key="end_date"
-            )
-            end_time = st.time_input(
-                "Hora de fin",
-                value=time(23, 59),
-                step=60,
-                key="end_time"
-            )
-
-            # Combinar fecha y hora
-            start_datetime = datetime.combine(start_date, start_time)
-            end_datetime = datetime.combine(end_date, end_time)
-
-        elif option == "Censura":
-            st.subheader("Censura")
-
-            # Selección de fecha y hora para censura
-            censor_start_date = st.date_input(
-                "Fecha de inicio de censura",
-                min_value=data['TIMESTAMP'].min().date(),
-                max_value=data['TIMESTAMP'].max().date(),
-                value=data['TIMESTAMP'].min().date(),
-                key="censor_start_date"
-            )
-            censor_start_time = st.time_input(
-                "Hora de inicio de censura",
-                value=time(0, 0),
-                step=60,
-                key="censor_start_time"
-            )
-
-            censor_end_date = st.date_input(
-                "Fecha de fin de censura",
-                min_value=data['TIMESTAMP'].min().date(),
-                max_value=data['TIMESTAMP'].max().date(),
-                value=data['TIMESTAMP'].max().date(),
-                key="censor_end_date"
-            )
-            censor_end_time = st.time_input(
-                "Hora de fin de censura",
-                value=time(23, 59),
-                step=60,
-                key="censor_end_time"
-            )
-
-            # Combinar fecha y hora para censura
-            censor_start_datetime = datetime.combine(censor_start_date, censor_start_time)
-            censor_end_datetime = datetime.combine(censor_end_date, censor_end_time)
-
+        # Seleccionar grupo y variables
         selected_group = st.selectbox("Seleccionar grupo", list(groups.keys()))
 
         if selected_group == "Todas las variables":
@@ -459,24 +415,68 @@ def main():
                 default=groups[selected_group]
             )
 
+        valid_vars = [var for var in selected_vars if var in data_to_plot.columns]
+
+        # Checkbox para aplicar censura
+        apply_censorship = st.checkbox("Aplicar censura", value=False)
+
+        if apply_censorship:
+            st.subheader("Censura de Datos")
+            # Selección de fecha y hora para censura
+            censor_start_date = st.date_input(
+                "Fecha de inicio de censura",
+                min_value=start_date,
+                max_value=end_date,
+                value=start_date,
+                key="censor_start_date"
+            )
+            censor_start_time = st.time_input(
+                "Hora de inicio de censura",
+                value=start_time,
+                step=60,
+                key="censor_start_time"
+            )
+
+            censor_end_date = st.date_input(
+                "Fecha de fin de censura",
+                min_value=start_date,
+                max_value=end_date,
+                value=end_date,
+                key="censor_end_date"
+            )
+            censor_end_time = st.time_input(
+                "Hora de fin de censura",
+                value=end_time,
+                step=60,
+                key="censor_end_time"
+            )
+
+            # Combinar fecha y hora para censura
+            censor_start_datetime = datetime.combine(censor_start_date, censor_start_time)
+            censor_end_datetime = datetime.combine(censor_end_date, censor_end_time)
+
+            # Aplicar censura en el rango de censura
+            data_to_plot.loc[
+                (data_to_plot['TIMESTAMP'] >= censor_start_datetime) & 
+                (data_to_plot['TIMESTAMP'] <= censor_end_datetime), 
+                valid_vars
+            ] = np.nan
+
         file_name = st.text_input("Nombre del archivo a descargar", "datos.csv")
 
     with col2:
         st.header("Vista de Datos")
 
-        if st.button('Gráfico / Descargar Informe'):
+        if 'view' not in st.session_state:
+            st.session_state.view = 'Gráfico'  # Puedes establecer 'Tabla' como valor predeterminado si lo prefieres
+
+        if st.button('Cambiar vista'):
             st.session_state.view = 'Tabla' if st.session_state.view == 'Gráfico' else 'Gráfico'
 
-        # Filtrar datos basados en el rango de fechas seleccionado
-        filtered_data = data[(data['TIMESTAMP'] >= start_datetime) & (data['TIMESTAMP'] <= end_datetime)]
-
         if st.session_state.view == 'Gráfico':
-            # Filtrar las variables seleccionadas para asegurarse de que existen en el DataFrame
-            valid_vars = [var for var in selected_vars if var in filtered_data.columns]
-            
             if valid_vars:
                 title = f"Gráfico de Multilínea\n"
-                fig = px.scatter(filtered_data, x='TIMESTAMP', y=valid_vars, title=title)
+                fig = px.scatter(data_to_plot, x='TIMESTAMP', y=valid_vars, title=title)
                 
                 # Configurar el tema del gráfico según el tema seleccionado
                 if st.session_state.theme == 'dark':
@@ -539,50 +539,27 @@ def main():
                         xaxis=dict(title_font_color='#333333', tickfont_color='#333333', gridcolor='#E0E0E0'),
                         yaxis=dict(title_font_color='#333333', tickfont_color='#333333', gridcolor='#E0E0E0')
                     )
-                
+
                 # Actualizar las líneas del gráfico para que sean más visibles
                 for trace in fig.data:
                     trace.update(line=dict(width=2))  # Hacer las líneas más gruesas
-                
+
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.warning("Ninguna de las variables seleccionadas está presente en los datos filtrados.")
+                st.warning("Ninguna de las variables seleccionadas está presente en los datos.")
 
         else:
-            if option == "Censura de datos":
-                # Aplicar censura de datos
-                censored_data = filtered_data.copy()
-                valid_vars = [var for var in selected_vars if var in censored_data.columns]
-                censored_data.loc[
-                    (censored_data['TIMESTAMP'] >= censor_start_datetime) & 
-                    (censored_data['TIMESTAMP'] <= censor_end_datetime), 
-                    valid_vars
-                ] = np.nan
+            st.write("Datos:")
+            st.dataframe(data_to_plot[['TIMESTAMP'] + valid_vars].head(10), height=400)
 
-                st.write("Datos con censura aplicada:")
-                st.dataframe(censored_data[['TIMESTAMP'] + valid_vars].head(10), height=400)
-
-                # Descargar datos
-                csv = censored_data.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="Descargar datos censurados como CSV",
-                    data=csv,
-                    file_name=file_name,
-                    mime='text/csv',
-                )
-            else:
-                st.write("Datos seleccionados:")
-                valid_vars = [var for var in selected_vars if var in filtered_data.columns]
-                st.dataframe(filtered_data[['TIMESTAMP'] + valid_vars].head(10), height=400)
-
-                # Descargar datos
-                csv = filtered_data.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="Descargar datos como CSV",
-                    data=csv,
-                    file_name=file_name,
-                    mime='text/csv',
-                )
+            # Descargar datos
+            csv = data_to_plot.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Descargar datos como CSV",
+                data=csv,
+                file_name=file_name,
+                mime='text/csv',
+            )
 
 # Ejecución principal
 if 'logged_in' not in st.session_state:
